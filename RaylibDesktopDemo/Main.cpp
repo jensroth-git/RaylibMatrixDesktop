@@ -28,6 +28,7 @@ default_random_engine generator;
 uniform_int_distribution<int> glyphDist;
 uniform_real_distribution<float> glyphChangeInitDist(0.0f, glyphChangeTime);
 uniform_real_distribution<float> glyphSpawnInitDist(0.0f, 1.0f);
+uniform_real_distribution<float> glyphMouseResponse(0.0f, 1.0f);
 
 class MatrixGlyph {
 public:
@@ -155,6 +156,8 @@ public:
 		}
 
 		bool isTick = false;
+		int lasMouseCol = (int)lastMouseCellPos.x;
+		int lastMouseRow = (int)lastMouseCellPos.y;
 
 		tickTime += delta;
 
@@ -205,7 +208,13 @@ public:
 					//move spawn cell one row down if possible
 					if (row != rows - 1)
 					{
-						glyphs[col][row + 1].spawnCell = true;
+						bool shouldSpawn = true;
+						if (mouseCol == col && mouseRow == row && glyphMouseResponse(generator) < 0.2f) {
+							shouldSpawn = false;
+						}
+						if (shouldSpawn) {
+							glyphs[col][row + 1].spawnCell = true;
+						}
 					}
 				}
 			}
@@ -249,6 +258,7 @@ private:
 	int columnWidth, rowHeight;
 	float glyphScale;
 	float tickTime = 0.0f;
+	Vector2 lastMouseCellPos = Vector2();
 
 	// Stores glyphs for each column
 	vector<vector<GlyphCell>> glyphs; 
@@ -311,7 +321,15 @@ int main()
 		}
 
 		Vector2 mousePos = RaylibDesktopGetMousePosition();
-		matrixRain.SetSpawnCell(mousePos);
+		Vector2 mouseCellPos = GetCellPositionFromPoint(point);
+		float mouseSpawnChance = 0.2f;
+		if (mouseCellPos.x != lastMouseCellPos.x || mouseCellPos.y != lastMouseCellPos.y) {
+			lastMouseCellPos = mouseCellPos;
+			mouseSpawnChance = 0.9f;
+		}
+		if (glyphMouseResponse(generator) < mouseSpawnChance) {
+			matrixRain.SetSpawnCell(lastMouseCellPos);
+		}
 
 		// Update the rain effect
 		matrixRain.Update(GetFrameTime());
