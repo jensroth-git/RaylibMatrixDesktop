@@ -1,4 +1,4 @@
-# RaylibMatrixDesktop
+# Matrix Rain Desktop using Raylib
 ![Logo](images/video.gif)
 
  Matrix Rain Effect for Windows Desktop using the [RaylibLiveWallpaper
