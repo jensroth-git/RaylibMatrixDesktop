@@ -209,10 +209,15 @@ public:
 					if (row != rows - 1)
 					{
 						bool shouldSpawn = true;
-						if (mouseCol == col && mouseRow == row && glyphMouseResponse(generator) < 0.2f) {
+
+						//if mouse is over the cell, 70% chance to block the drop
+						if (lastMouseCellPos.x == col && lastMouseCellPos.y == row && glyphMouseResponse(generator) < 0.7f) 
+						{
 							shouldSpawn = false;
 						}
-						if (shouldSpawn) {
+
+						if (shouldSpawn) 
+						{
 							glyphs[col][row + 1].spawnCell = true;
 						}
 					}
@@ -235,6 +240,8 @@ public:
 		}
 	}
 
+	Vector2 lastMouseCellPos = Vector2();
+
 	Vector2 GetCellPositionFromPoint(Vector2 point) const
 	{
 		return {
@@ -243,9 +250,8 @@ public:
 		};
 	}
 
-	void SetSpawnCell(Vector2 point)
+	void SetSpawnCell(Vector2 cellPos)
 	{
-		Vector2 cellPos = GetCellPositionFromPoint(point);
 		if (cellPos.x >= 0 && cellPos.x < columns && cellPos.y >= 0 && cellPos.y < rows)
 		{
 			glyphs[(int)cellPos.x][(int)cellPos.y].spawnCell = true;
@@ -258,7 +264,7 @@ private:
 	int columnWidth, rowHeight;
 	float glyphScale;
 	float tickTime = 0.0f;
-	Vector2 lastMouseCellPos = Vector2();
+	
 
 	// Stores glyphs for each column
 	vector<vector<GlyphCell>> glyphs; 
@@ -321,14 +327,21 @@ int main()
 		}
 
 		Vector2 mousePos = RaylibDesktopGetMousePosition();
-		Vector2 mouseCellPos = GetCellPositionFromPoint(point);
-		float mouseSpawnChance = 0.2f;
-		if (mouseCellPos.x != lastMouseCellPos.x || mouseCellPos.y != lastMouseCellPos.y) {
-			lastMouseCellPos = mouseCellPos;
-			mouseSpawnChance = 0.9f;
+		Vector2 mouseCellPos = matrixRain.GetCellPositionFromPoint(mousePos);
+
+		float mouseSpawnChance = 0.0f;
+
+		//if the mouse has moved, increase the spawn chance
+		if (mouseCellPos.x != matrixRain.lastMouseCellPos.x || mouseCellPos.y != matrixRain.lastMouseCellPos.y) 
+		{
+			matrixRain.lastMouseCellPos = mouseCellPos;
+			mouseSpawnChance = 0.6f;
 		}
-		if (glyphMouseResponse(generator) < mouseSpawnChance) {
-			matrixRain.SetSpawnCell(lastMouseCellPos);
+
+		//spawn a new cell if the mouse is over the cell
+		if (glyphMouseResponse(generator) < mouseSpawnChance) 
+		{
+			matrixRain.SetSpawnCell(matrixRain.lastMouseCellPos);
 		}
 
 		// Update the rain effect
