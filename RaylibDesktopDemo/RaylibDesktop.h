@@ -4,13 +4,14 @@
 // Call this function to initialize the desktop window.
 int InitRaylibDesktop();
 
-// Monitor setup 
+// Monitor setup
 // Structure to hold information about a monitor
-typedef struct MonitorInfo {
-    int monitorLeftCoordinate;  // X coordinate of the monitor's top-left corner
-    int monitorTopCoordinate;   // Y coordinate of the monitor's top-left corner
-    int monitorWidth;           // Monitor width in pixels
-    int monitorHeight;          // Monitor height in pixels
+typedef struct MonitorInfo
+{
+	int monitorLeftCoordinate; // X coordinate of the monitor's top-left corner
+	int monitorTopCoordinate; // Y coordinate of the monitor's top-left corner
+	int monitorWidth; // Monitor width in pixels
+	int monitorHeight; // Monitor height in pixels
 };
 
 // Enumerate all monitors and return their information
@@ -23,10 +24,10 @@ MonitorInfo GetWallpaperTarget(int monitorIndex);
 void ConfigureDesktopPositioning(MonitorInfo monitorInfo);
 
 // Monitor Occlusion Detection
-bool IsMonitorOccluded(const MonitorInfo& monitor, double occlusionThreshold = 0.95);
+bool IsMonitorOccluded(const MonitorInfo &monitor, double occlusionThreshold = 0.95);
 
 // Call this function to reparent the raylib window to the desktop after raylib has created its own.
-void RaylibDesktopReparentWindow(void* raylibWindowHandle);
+void RaylibDesktopReparentWindow(void *raylibWindowHandle);
 
 // Call this function to clean up the desktop window.
 void CleanupRaylibDesktop();
@@ -47,10 +48,10 @@ void RaylibDesktopUpdateMouseState(void);
 //   2: Middle button (VK_MBUTTON)
 //   3: XButton1   (VK_XBUTTON1)
 //   4: XButton2   (VK_XBUTTON2)
-bool RaylibDesktopIsMouseButtonPressed(int button);  // Returns true only on the frame the button was pressed.
-bool RaylibDesktopIsMouseButtonDown(int button);     // Returns true if the button is currently down.
+bool RaylibDesktopIsMouseButtonPressed(int button); // Returns true only on the frame the button was pressed.
+bool RaylibDesktopIsMouseButtonDown(int button); // Returns true if the button is currently down.
 bool RaylibDesktopIsMouseButtonReleased(int button); // Returns true only on the frame the button was released.
-bool RaylibDesktopIsMouseButtonUp(int button);       // Returns true if the button is currently up.
+bool RaylibDesktopIsMouseButtonUp(int button); // Returns true if the button is currently up.
 
 // Mouse position functions.
 // These return the global cursor position (in physical pixels).
