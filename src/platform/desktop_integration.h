@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 
 // Cross-platform desktop integration interface
 

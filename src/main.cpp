@@ -7,7 +7,7 @@
 #include "raylib.h"
 
 // Configuration
-constexpr float GLYPH_SCALE = 0.10f;
+constexpr float GLYPH_SCALE = 0.15f;
 constexpr int TARGET_MONITOR = -1; // -1 for all monitors, 0+ for specific monitor
 
 // Global random distributions for mouse spawning
@@ -29,7 +29,7 @@ int main()
 			  << monitor.y << ")" << std::endl;
 
 	// Initialize raylib window
-	SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
 	InitWindow(monitor.width, monitor.height, "Matrix Desktop Wallpaper");
 
 	// Set target FPS
@@ -98,14 +98,30 @@ int main()
 		// Update matrix rain
 		matrixRain.Update(deltaTime);
 
+		BeginTextureMode(target);
+		{
+			ClearBackground(BLACK);
+			matrixRain.Draw();
+		}
+		EndTextureMode();
+
 		// Render to screen with bloom effect
 		BeginDrawing();
+		{
+			// Apply bloom shader
+			BeginShaderMode(bloom);
+			{
+				DrawTexturePro(
+					target.texture,
+					{0, 0, (float)target.texture.width, (float)-target.texture.height},
+					{0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()},
+					{0, 0},
+					0,
+					WHITE
+				);
+			}
+			EndShaderMode();
 
-		ClearBackground(BLACK);
-		matrixRain.Draw();
-
-		// Apply bloom shader
-		// BeginShaderMode(bloom);
 // Optional: Draw debug info
 #if 0
 		const int yStart = 100;
@@ -116,7 +132,7 @@ int main()
 		DrawText(TextFormat("Screen: %dx%d", GetScreenWidth(), GetScreenHeight()), 10, yStart + yStep * 3, 20, GREEN);
 		DrawText(TextFormat("Render: %dx%d", GetRenderWidth(), GetRenderHeight()), 10, yStart + yStep * 4, 20, GREEN);
 #endif
-
+		}
 		EndDrawing();
 
 		// Handle window events

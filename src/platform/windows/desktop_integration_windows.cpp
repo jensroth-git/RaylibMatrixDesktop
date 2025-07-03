@@ -1,9 +1,14 @@
 #ifdef _WIN32
 
+#define UNICODE
+#define _UNICODE
+
 #include "../desktop_integration.h"
 #include <Windows.h>
 #include <limits>
 #include <algorithm>
+
+
 
 // For occlusion detection
 #include <dwmapi.h>
