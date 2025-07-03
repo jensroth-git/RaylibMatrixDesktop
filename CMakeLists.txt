@@ -29,6 +29,7 @@ if (NOT raylib_FOUND)
         GIT_REPOSITORY https://github.com/raysan5/raylib.git
         GIT_TAG 5.5
     )
+
     FetchContent_MakeAvailable(raylib)
 endif()
 
@@ -88,9 +89,18 @@ elseif(PLATFORM_MACOS)
         ${CARBON_LIBRARY}
     )
 elseif(PLATFORM_LINUX)
+    find_package(X11 REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(XRANDR REQUIRED xrandr)
+
     target_link_libraries(${PROJECT_NAME}
-        X11
-        Xrandr
+        ${X11_LIBRARIES}
+        ${XRANDR_LIBRARIES}
+    )
+
+    target_include_directories(${PROJECT_NAME} PRIVATE
+        ${XRANDR_INCLUDE_DIRS}
+        ${X11_INCLUDE_DIR}
     )
 endif()
 

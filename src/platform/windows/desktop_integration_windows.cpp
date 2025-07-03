@@ -3,12 +3,10 @@
 #define UNICODE
 #define _UNICODE
 
-#include "../desktop_integration.h"
 #include <Windows.h>
-#include <limits>
 #include <algorithm>
-
-
+#include <limits>
+#include "../desktop_integration.h"
 
 // For occlusion detection
 #include <dwmapi.h>
@@ -42,394 +40,436 @@ static bool g_currentMouseState[5] = {false};
 static bool g_previousMouseState[5] = {false};
 
 // Monitor enumeration callback
-BOOL CALLBACK MonitorEnumProc(HMONITOR monitorHandle, HDC monitorDeviceContext, 
-                             LPRECT monitorRectangle, LPARAM lParam) {
-    std::vector<MonitorInfo>* monitorVector = reinterpret_cast<std::vector<MonitorInfo>*>(lParam);
+BOOL CALLBACK MonitorEnumProc(HMONITOR monitorHandle, HDC monitorDeviceContext, LPRECT monitorRectangle, LPARAM lParam)
+{
+	std::vector<MonitorInfo> *monitorVector = reinterpret_cast<std::vector<MonitorInfo> *>(lParam);
 
-    MONITORINFOEX monitorInfoEx;
-    monitorInfoEx.cbSize = sizeof(MONITORINFOEX);
+	MONITORINFOEX monitorInfoEx;
+	monitorInfoEx.cbSize = sizeof(MONITORINFOEX);
 
-    if (GetMonitorInfo(monitorHandle, &monitorInfoEx)) {
-        MonitorInfo currentMonitorInfo;
-        currentMonitorInfo.x = monitorInfoEx.rcMonitor.left;
-        currentMonitorInfo.y = monitorInfoEx.rcMonitor.top;
-        currentMonitorInfo.width = monitorInfoEx.rcMonitor.right - monitorInfoEx.rcMonitor.left;
-        currentMonitorInfo.height = monitorInfoEx.rcMonitor.bottom - monitorInfoEx.rcMonitor.top;
+	if (GetMonitorInfo(monitorHandle, &monitorInfoEx)) {
+		MonitorInfo currentMonitorInfo;
+		currentMonitorInfo.x = monitorInfoEx.rcMonitor.left;
+		currentMonitorInfo.y = monitorInfoEx.rcMonitor.top;
+		currentMonitorInfo.width = monitorInfoEx.rcMonitor.right - monitorInfoEx.rcMonitor.left;
+		currentMonitorInfo.height = monitorInfoEx.rcMonitor.bottom - monitorInfoEx.rcMonitor.top;
 
-        monitorVector->push_back(currentMonitorInfo);
-    }
+		monitorVector->push_back(currentMonitorInfo);
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 // Callback function for EnumWindows to locate the proper WorkerW window
-BOOL CALLBACK EnumWindowsProc(HWND windowHandle, LPARAM lParam) {
-    // Look for a child window named "SHELLDLL_DefView" in each top-level window.
-    HWND shellViewWindow = FindWindowEx(windowHandle, NULL, L"SHELLDLL_DefView", NULL);
-    if (shellViewWindow != NULL) {
-        // If found, get the WorkerW window that is a sibling of the found window.
-        g_workerWindowHandle = FindWindowEx(NULL, windowHandle, L"WorkerW", NULL);
-        return FALSE; // Stop enumeration since we have found the desired window.
-    }
-    return TRUE;
+BOOL CALLBACK EnumWindowsProc(HWND windowHandle, LPARAM lParam)
+{
+	// Look for a child window named "SHELLDLL_DefView" in each top-level window.
+	HWND shellViewWindow = FindWindowEx(windowHandle, NULL, L"SHELLDLL_DefView", NULL);
+	if (shellViewWindow != NULL) {
+		// If found, get the WorkerW window that is a sibling of the found window.
+		g_workerWindowHandle = FindWindowEx(NULL, windowHandle, L"WorkerW", NULL);
+		return FALSE; // Stop enumeration since we have found the desired window.
+	}
+	return TRUE;
 }
 
-namespace DesktopIntegration {
+namespace DesktopIntegration
+{
 
-bool Initialize() {
-    // Set the process DPI awareness to get physical pixel coordinates.
-    // This must be done before any windows are created.
-    HRESULT dpiAwarenessResult = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-    if (FAILED(dpiAwarenessResult)) {
-        // Continue if needed, but coordinate values may be scaled.
-    }
+	bool Initialize()
+	{
+		// Set the process DPI awareness to get physical pixel coordinates.
+		// This must be done before any windows are created.
+		HRESULT dpiAwarenessResult = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+		if (FAILED(dpiAwarenessResult)) {
+			// Continue if needed, but coordinate values may be scaled.
+		}
 
-    // Locate the Progman window (the desktop window)
-    g_progmanWindowHandle = FindWindow(L"Progman", NULL);
-    if (!g_progmanWindowHandle) {
-        return false;
-    }
+		// Locate the Progman window (the desktop window)
+		g_progmanWindowHandle = FindWindow(L"Progman", NULL);
+		if (!g_progmanWindowHandle) {
+			return false;
+		}
 
-    // Send message 0x052C to Progman to force creation of a WorkerW window
-    LRESULT result = 0;
-    SendMessageTimeout(
-        g_progmanWindowHandle,
-        0x052C, // Undocumented message to trigger WorkerW creation
-        0,
-        0,
-        SMTO_NORMAL,
-        1000,
-        reinterpret_cast<PDWORD_PTR>(&result)
-    );
+		// Send message 0x052C to Progman to force creation of a WorkerW window
+		LRESULT result = 0;
+		SendMessageTimeout(
+			g_progmanWindowHandle,
+			0x052C, // Undocumented message to trigger WorkerW creation
+			0,
+			0,
+			SMTO_NORMAL,
+			1000,
+			reinterpret_cast<PDWORD_PTR>(&result)
+		);
 
-    // Try to locate the Shell view (desktop icons) and WorkerW child directly under Progman
-    g_shellViewWindowHandle = FindWindowEx(g_progmanWindowHandle, NULL, L"SHELLDLL_DefView", NULL);
-    g_workerWindowHandle = FindWindowEx(g_progmanWindowHandle, NULL, L"WorkerW", NULL);
+		// Try to locate the Shell view (desktop icons) and WorkerW child directly under Progman
+		g_shellViewWindowHandle = FindWindowEx(g_progmanWindowHandle, NULL, L"SHELLDLL_DefView", NULL);
+		g_workerWindowHandle = FindWindowEx(g_progmanWindowHandle, NULL, L"WorkerW", NULL);
 
-    // Fallback for pre-24H2 builds where the WorkerW is a sibling window
-    if (g_workerWindowHandle == NULL) {
-        EnumWindows(EnumWindowsProc, 0);
-    }
+		// Fallback for pre-24H2 builds where the WorkerW is a sibling window
+		if (g_workerWindowHandle == NULL) {
+			EnumWindows(EnumWindowsProc, 0);
+		}
 
-    if (g_workerWindowHandle == NULL) {
-        return false;
-    }
+		if (g_workerWindowHandle == NULL) {
+			return false;
+		}
 
-    return true;
-}
+		return true;
+	}
 
-void Cleanup() {
-    if (g_raylibWindowHandle) {
-        // Restore the desktop wallpaper
-        wchar_t wallpaperPath[MAX_PATH] = {0};
-        if (SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0)) {
-            // Reapply the wallpaper to force a refresh.
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
-        }
-    }
+	void Cleanup()
+	{
+		if (g_raylibWindowHandle) {
+			// Restore the desktop wallpaper
+			wchar_t wallpaperPath[MAX_PATH] = {0};
+			if (SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0)) {
+				// Reapply the wallpaper to force a refresh.
+				SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+			}
+		}
 
-    g_progmanWindowHandle = NULL;
-    g_workerWindowHandle = NULL;
-    g_shellViewWindowHandle = NULL;
-    g_raylibWindowHandle = NULL;
-}
+		g_progmanWindowHandle = NULL;
+		g_workerWindowHandle = NULL;
+		g_shellViewWindowHandle = NULL;
+		g_raylibWindowHandle = NULL;
+	}
 
-std::vector<MonitorInfo> EnumerateMonitors() {
-    std::vector<MonitorInfo> monitorInfoVector;
-    
-    EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitorInfoVector));
+	std::vector<MonitorInfo> EnumerateMonitors()
+	{
+		std::vector<MonitorInfo> monitorInfoVector;
 
-    // Convert to desktop coordinates starting at 0,0
-    g_desktopX = INT_MAX;
-    g_desktopY = INT_MAX;
+		EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitorInfoVector));
 
-    for (auto& monitor : monitorInfoVector) {
-        if (monitor.x < g_desktopX) {
-            g_desktopX = monitor.x;
-        }
-        if (monitor.y < g_desktopY) {
-            g_desktopY = monitor.y;
-        }
-    }
+		// Convert to desktop coordinates starting at 0,0
+		g_desktopX = INT_MAX;
+		g_desktopY = INT_MAX;
 
-    for (auto& monitor : monitorInfoVector) {
-        monitor.x -= g_desktopX;
-        monitor.y -= g_desktopY;
-    }
+		for (auto &monitor : monitorInfoVector) {
+			if (monitor.x < g_desktopX) {
+				g_desktopX = monitor.x;
+			}
+			if (monitor.y < g_desktopY) {
+				g_desktopY = monitor.y;
+			}
+		}
 
-    return monitorInfoVector;
-}
+		for (auto &monitor : monitorInfoVector) {
+			monitor.x -= g_desktopX;
+			monitor.y -= g_desktopY;
+		}
 
-MonitorInfo GetWallpaperTarget(int monitorIndex) {
-    std::vector<MonitorInfo> monitors = EnumerateMonitors();
+		return monitorInfoVector;
+	}
 
-    if (monitorIndex < 0 || monitorIndex >= static_cast<int>(monitors.size())) {
-        MonitorInfo info;
-        info.x = 0;
-        info.y = 0;
-        info.width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        info.height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-        return info;
-    } else {
-        return monitors[monitorIndex];
-    }
-}
+	MonitorInfo GetWallpaperTarget(int monitorIndex)
+	{
+		std::vector<MonitorInfo> monitors = EnumerateMonitors();
 
-void ConfigureWallpaperWindow(void* windowHandle, const MonitorInfo& monitor) {
-    g_raylibWindowHandle = static_cast<HWND>(windowHandle);
-    
-    if (!g_raylibWindowHandle || !g_progmanWindowHandle) {
-        return;
-    }
+		if (monitorIndex < 0 || monitorIndex >= static_cast<int>(monitors.size())) {
+			MonitorInfo info;
+			info.x = 0;
+			info.y = 0;
+			info.width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+			info.height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+			return info;
+		}
+		else {
+			return monitors[monitorIndex];
+		}
+	}
 
-    // Prepare the raylib window to be a layered child of Progman
-    LONG_PTR style = GetWindowLongPtr(g_raylibWindowHandle, GWL_STYLE);
-    style &= ~(WS_OVERLAPPEDWINDOW); // Remove decorations
-    style |= WS_CHILD; // Child style required for SetParent
-    SetWindowLongPtr(g_raylibWindowHandle, GWL_STYLE, style);
+	void ConfigureWallpaperWindow(void *windowHandle, const MonitorInfo &monitor)
+	{
+		g_raylibWindowHandle = static_cast<HWND>(windowHandle);
 
-    LONG_PTR exStyle = GetWindowLongPtr(g_raylibWindowHandle, GWL_EXSTYLE);
-    exStyle |= WS_EX_LAYERED; // Make it a layered window for 24H2
-    SetWindowLongPtr(g_raylibWindowHandle, GWL_EXSTYLE, exStyle);
-    SetLayeredWindowAttributes(g_raylibWindowHandle, 0, 255, LWA_ALPHA);
+		if (!g_raylibWindowHandle || !g_progmanWindowHandle) {
+			return;
+		}
 
-    // Reparent the raylib window directly to Progman
-    SetParent(g_raylibWindowHandle, g_progmanWindowHandle);
+		// Prepare the raylib window to be a layered child of Progman
+		LONG_PTR style = GetWindowLongPtr(g_raylibWindowHandle, GWL_STYLE);
+		style &= ~(WS_OVERLAPPEDWINDOW); // Remove decorations
+		style |= WS_CHILD; // Child style required for SetParent
+		SetWindowLongPtr(g_raylibWindowHandle, GWL_STYLE, style);
 
-    // Ensure correct Z-order: below icons but above the system wallpaper
-    if (g_shellViewWindowHandle) {
-        SetWindowPos(
-            g_raylibWindowHandle, g_shellViewWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
-        );
-    }
-    if (g_workerWindowHandle) {
-        SetWindowPos(g_workerWindowHandle, g_raylibWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
-    }
+		LONG_PTR exStyle = GetWindowLongPtr(g_raylibWindowHandle, GWL_EXSTYLE);
+		exStyle |= WS_EX_LAYERED; // Make it a layered window for 24H2
+		SetWindowLongPtr(g_raylibWindowHandle, GWL_EXSTYLE, exStyle);
+		SetLayeredWindowAttributes(g_raylibWindowHandle, 0, 255, LWA_ALPHA);
 
-    // Resize/reposition the raylib window to match its new parent.
-    // g_progmanWindowHandle spans the entire virtual desktop in modern builds
-    SetWindowPos(
-        g_raylibWindowHandle,
-        NULL,
-        monitor.x,
-        monitor.y,
-        monitor.width,
-        monitor.height,
-        SWP_NOZORDER | SWP_NOACTIVATE
-    );
+		// Reparent the raylib window directly to Progman
+		SetParent(g_raylibWindowHandle, g_progmanWindowHandle);
 
-    RedrawWindow(g_raylibWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+		// Ensure correct Z-order: below icons but above the system wallpaper
+		if (g_shellViewWindowHandle) {
+			SetWindowPos(
+				g_raylibWindowHandle, g_shellViewWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
+			);
+		}
+		if (g_workerWindowHandle) {
+			SetWindowPos(
+				g_workerWindowHandle, g_raylibWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
+			);
+		}
 
-    g_selectedMonitor = monitor;
-}
+		// Resize/reposition the raylib window to match its new parent.
+		// g_progmanWindowHandle spans the entire virtual desktop in modern builds
+		SetWindowPos(
+			g_raylibWindowHandle,
+			NULL,
+			monitor.x,
+			monitor.y,
+			monitor.width,
+			monitor.height,
+			SWP_NOZORDER | SWP_NOACTIVATE
+		);
 
-struct FullscreenOcclusionData {
-    MonitorInfo monitor;
-    std::vector<RECT> occludedRects;
-};
+		RedrawWindow(g_raylibWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 
-static bool IsInvisibleWin10BackgroundAppWindow(HWND hWnd) {
-    int CloakedVal;
-    HRESULT hRes = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, &CloakedVal, sizeof(CloakedVal));
-    if (hRes != S_OK) {
-        CloakedVal = 0;
-    }
-    return CloakedVal ? true : false;
-}
+		g_selectedMonitor = monitor;
+	}
 
-double ComputeOcclusionFraction(const std::vector<RECT>& occludedRects, 
-                               const MonitorInfo& monitor, int sampleStep = 100) {
-    int occludedCount = 0;
-    int totalSamples = 0;
+	struct FullscreenOcclusionData
+	{
+		MonitorInfo monitor;
+		std::vector<RECT> occludedRects;
+	};
 
-    for (int y = monitor.y; y < monitor.y + monitor.height; y += sampleStep) {
-        for (int x = monitor.x; x < monitor.x + monitor.width; x += sampleStep) {
-            totalSamples++;
-            bool isOccluded = false;
-            
-            for (const RECT& rect : occludedRects) {
-                if (x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom) {
-                    isOccluded = true;
-                    break;
-                }
-            }
-            if (isOccluded) occludedCount++;
-        }
-    }
+	static bool IsInvisibleWin10BackgroundAppWindow(HWND hWnd)
+	{
+		int CloakedVal;
+		HRESULT hRes = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, &CloakedVal, sizeof(CloakedVal));
+		if (hRes != S_OK) {
+			CloakedVal = 0;
+		}
+		return CloakedVal ? true : false;
+	}
 
-    if (totalSamples == 0) return 0.0;
-    return static_cast<double>(occludedCount) / static_cast<double>(totalSamples);
-}
+	double
+	ComputeOcclusionFraction(const std::vector<RECT> &occludedRects, const MonitorInfo &monitor, int sampleStep = 100)
+	{
+		int occludedCount = 0;
+		int totalSamples = 0;
 
-BOOL CALLBACK FullscreenWindowEnumProc(HWND hwnd, LPARAM lParam) {
-    FullscreenOcclusionData* occlusionData = reinterpret_cast<FullscreenOcclusionData*>(lParam);
+		for (int y = monitor.y; y < monitor.y + monitor.height; y += sampleStep) {
+			for (int x = monitor.x; x < monitor.x + monitor.width; x += sampleStep) {
+				totalSamples++;
+				bool isOccluded = false;
 
-    if (hwnd == g_raylibWindowHandle || hwnd == g_workerWindowHandle) {
-        return TRUE;
-    }
+				for (const RECT &rect : occludedRects) {
+					if (x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom) {
+						isOccluded = true;
+						break;
+					}
+				}
+				if (isOccluded)
+					occludedCount++;
+			}
+		}
 
-    // Skip non-visible or minimized windows.
-    if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) {
-        return TRUE;
-    }
+		if (totalSamples == 0)
+			return 0.0;
+		return static_cast<double>(occludedCount) / static_cast<double>(totalSamples);
+	}
 
-    // make sure it isnt the shell window
-    if (GetShellWindow() == hwnd) {
-        return TRUE;
-    }
+	BOOL CALLBACK FullscreenWindowEnumProc(HWND hwnd, LPARAM lParam)
+	{
+		FullscreenOcclusionData *occlusionData = reinterpret_cast<FullscreenOcclusionData *>(lParam);
 
-    // make sure it isnt a workerw window
-    char g_szClassName[256];
-    GetClassNameA(hwnd, g_szClassName, 256);
+		if (hwnd == g_raylibWindowHandle || hwnd == g_workerWindowHandle) {
+			return TRUE;
+		}
 
-    if (strcmp(g_szClassName, "WorkerW") == 0) {
-        return TRUE;
-    }
+		// Skip non-visible or minimized windows.
+		if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) {
+			return TRUE;
+		}
 
-    // check that it isnt the Nvidia overlay
-    if (strcmp(g_szClassName, "CEF-OSC-WIDGET") == 0) {
-        return TRUE;
-    }
+		// make sure it isnt the shell window
+		if (GetShellWindow() == hwnd) {
+			return TRUE;
+		}
 
-    // Skip the invisible windows that are part of the Windows 10 background app
-    if (IsInvisibleWin10BackgroundAppWindow(hwnd)) {
-        return TRUE;
-    }
+		// make sure it isnt a workerw window
+		char g_szClassName[256];
+		GetClassNameA(hwnd, g_szClassName, 256);
 
-    RECT windowRect;
-    if (GetWindowRect(hwnd, &windowRect)) {
-        // convert window rect to desktop coordinates
-        windowRect.left -= g_desktopX;
-        windowRect.right -= g_desktopX;
-        windowRect.top -= g_desktopY;
-        windowRect.bottom -= g_desktopY;
+		if (strcmp(g_szClassName, "WorkerW") == 0) {
+			return TRUE;
+		}
 
-        // Build a rectangle for the target monitor.
-        RECT monitorRect;
-        monitorRect.left = occlusionData->monitor.x;
-        monitorRect.top = occlusionData->monitor.y;
-        monitorRect.right = occlusionData->monitor.x + occlusionData->monitor.width;
-        monitorRect.bottom = occlusionData->monitor.y + occlusionData->monitor.height;
+		// check that it isnt the Nvidia overlay
+		if (strcmp(g_szClassName, "CEF-OSC-WIDGET") == 0) {
+			return TRUE;
+		}
 
-        // Calculate the intersection of the window's rectangle with the monitor's rectangle.
-        RECT intersectionRect;
-        if (IntersectRect(&intersectionRect, &windowRect, &monitorRect)) {
-            // store the occluded area
-            occlusionData->occludedRects.push_back(intersectionRect);
-        }
-    }
+		// Skip the invisible windows that are part of the Windows 10 background app
+		if (IsInvisibleWin10BackgroundAppWindow(hwnd)) {
+			return TRUE;
+		}
 
-    return TRUE;
-}
+		RECT windowRect;
+		if (GetWindowRect(hwnd, &windowRect)) {
+			// convert window rect to desktop coordinates
+			windowRect.left -= g_desktopX;
+			windowRect.right -= g_desktopX;
+			windowRect.top -= g_desktopY;
+			windowRect.bottom -= g_desktopY;
 
-bool IsMonitorOccluded(const MonitorInfo& monitor, double threshold) {
-    FullscreenOcclusionData occlusionData;
-    occlusionData.monitor = monitor;
+			// Build a rectangle for the target monitor.
+			RECT monitorRect;
+			monitorRect.left = occlusionData->monitor.x;
+			monitorRect.top = occlusionData->monitor.y;
+			monitorRect.right = occlusionData->monitor.x + occlusionData->monitor.width;
+			monitorRect.bottom = occlusionData->monitor.y + occlusionData->monitor.height;
 
-    EnumWindows(FullscreenWindowEnumProc, reinterpret_cast<LPARAM>(&occlusionData));
+			// Calculate the intersection of the window's rectangle with the monitor's rectangle.
+			RECT intersectionRect;
+			if (IntersectRect(&intersectionRect, &windowRect, &monitorRect)) {
+				// store the occluded area
+				occlusionData->occludedRects.push_back(intersectionRect);
+			}
+		}
 
-    double occlusionFraction = ComputeOcclusionFraction(occlusionData.occludedRects, monitor);
-    return occlusionFraction >= threshold;
-}
+		return TRUE;
+	}
 
-static int GetVirtualKeyForMouseButton(int button) {
-    switch (button) {
-        case 0: return VK_LBUTTON;
-        case 1: return VK_RBUTTON;
-        case 2: return VK_MBUTTON;
-        case 3: return VK_XBUTTON1;
-        case 4: return VK_XBUTTON2;
-        default: return 0;
-    }
-}
+	bool IsMonitorOccluded(const MonitorInfo &monitor, double threshold)
+	{
+		FullscreenOcclusionData occlusionData;
+		occlusionData.monitor = monitor;
 
-void UpdateMouseState() {
-    // Save previous state
-    for (int i = 0; i < 5; i++) {
-        g_previousMouseState[i] = g_currentMouseState[i];
-    }
+		EnumWindows(FullscreenWindowEnumProc, reinterpret_cast<LPARAM>(&occlusionData));
 
-    // Update current state
-    for (int i = 0; i < 5; i++) {
-        int vk = GetVirtualKeyForMouseButton(i);
-        if (vk != 0) {
-            g_currentMouseState[i] = (GetAsyncKeyState(vk) & 0x8000) != 0;
-        } else {
-            g_currentMouseState[i] = false;
-        }
-    }
-}
+		double occlusionFraction = ComputeOcclusionFraction(occlusionData.occludedRects, monitor);
+		return occlusionFraction >= threshold;
+	}
 
-bool IsMouseButtonPressed(int button) {
-    if (button < 0 || button >= 5) return false;
-    return g_currentMouseState[button] && !g_previousMouseState[button];
-}
+	static int GetVirtualKeyForMouseButton(int button)
+	{
+		switch (button) {
+		case 0:
+			return VK_LBUTTON;
+		case 1:
+			return VK_RBUTTON;
+		case 2:
+			return VK_MBUTTON;
+		case 3:
+			return VK_XBUTTON1;
+		case 4:
+			return VK_XBUTTON2;
+		default:
+			return 0;
+		}
+	}
 
-bool IsMouseButtonDown(int button) {
-    if (button < 0 || button >= 5) return false;
-    return g_currentMouseState[button];
-}
+	void UpdateMouseState()
+	{
+		// Save previous state
+		for (int i = 0; i < 5; i++) {
+			g_previousMouseState[i] = g_currentMouseState[i];
+		}
 
-bool IsMouseButtonReleased(int button) {
-    if (button < 0 || button >= 5) return false;
-    return !g_currentMouseState[button] && g_previousMouseState[button];
-}
+		// Update current state
+		for (int i = 0; i < 5; i++) {
+			int vk = GetVirtualKeyForMouseButton(i);
+			if (vk != 0) {
+				g_currentMouseState[i] = (GetAsyncKeyState(vk) & 0x8000) != 0;
+			}
+			else {
+				g_currentMouseState[i] = false;
+			}
+		}
+	}
 
-bool IsMouseButtonUp(int button) {
-    if (button < 0 || button >= 5) return false;
-    return !g_currentMouseState[button];
-}
+	bool IsMouseButtonPressed(int button)
+	{
+		if (button < 0 || button >= 5)
+			return false;
+		return g_currentMouseState[button] && !g_previousMouseState[button];
+	}
 
-bool GetRelativeCursorPos(POINT* p) {
-    if (!GetCursorPos(p)) return false;
+	bool IsMouseButtonDown(int button)
+	{
+		if (button < 0 || button >= 5)
+			return false;
+		return g_currentMouseState[button];
+	}
 
-    // Convert to desktop coordinates
-    p->x -= g_desktopX;
-    p->y -= g_desktopY;
+	bool IsMouseButtonReleased(int button)
+	{
+		if (button < 0 || button >= 5)
+			return false;
+		return !g_currentMouseState[button] && g_previousMouseState[button];
+	}
 
-    // Convert to window coordinates
-    p->x -= g_selectedMonitor.x;
-    p->y -= g_selectedMonitor.y;
+	bool IsMouseButtonUp(int button)
+	{
+		if (button < 0 || button >= 5)
+			return false;
+		return !g_currentMouseState[button];
+	}
 
-    return true;
-}
+	bool GetRelativeCursorPos(POINT *p)
+	{
+		if (!GetCursorPos(p))
+			return false;
 
-int GetMouseX() {
-    POINT p;
-    if (GetRelativeCursorPos(&p)) {
-        return p.x;
-    }
-    return 0;
-}
+		// Convert to desktop coordinates
+		p->x -= g_desktopX;
+		p->y -= g_desktopY;
 
-int GetMouseY() {
-    POINT p;
-    if (GetRelativeCursorPos(&p)) {
-        return p.y;
-    }
-    return 0;
-}
+		// Convert to window coordinates
+		p->x -= g_selectedMonitor.x;
+		p->y -= g_selectedMonitor.y;
 
-Vector2Platform GetMousePosition() {
-    POINT p;
-    if (GetRelativeCursorPos(&p)) {
-        return {static_cast<float>(p.x), static_cast<float>(p.y)};
-    }
-    return {0.0f, 0.0f};
-}
+		return true;
+	}
 
-bool SupportsDynamicWallpaper() {
-    return true;
-}
+	int GetMouseX()
+	{
+		POINT p;
+		if (GetRelativeCursorPos(&p)) {
+			return p.x;
+		}
+		return 0;
+	}
 
-bool SupportsMultiMonitor() {
-    return true;
-}
+	int GetMouseY()
+	{
+		POINT p;
+		if (GetRelativeCursorPos(&p)) {
+			return p.y;
+		}
+		return 0;
+	}
 
-void ShowAlert(const std::string &title, const std::string &message) {
-    MessageBoxA(NULL, message.c_str(), title.c_str(), MB_OK | MB_ICONINFORMATION);
-}
+	Vector2Platform GetMousePosition()
+	{
+		POINT p;
+		if (GetRelativeCursorPos(&p)) {
+			return {static_cast<float>(p.x), static_cast<float>(p.y)};
+		}
+		return {0.0f, 0.0f};
+	}
+
+	bool SupportsDynamicWallpaper()
+	{
+		return true;
+	}
+
+	bool SupportsMultiMonitor()
+	{
+		return true;
+	}
+
+	void ShowAlert(const std::string &title, const std::string &message)
+	{
+		MessageBoxA(NULL, message.c_str(), title.c_str(), MB_OK | MB_ICONINFORMATION);
+	}
 
 } // namespace DesktopIntegration
 
-#endif // _WIN32 
+#endif // _WIN32

@@ -110,7 +110,7 @@ int main()
 		// Update matrix rain
 		matrixRain.Update(deltaTime);
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__)
 		BeginTextureMode(target);
 		{
 			ClearBackground(BLACK);
@@ -137,13 +137,6 @@ int main()
 #endif
 
 #ifdef __APPLE__
-			BeginDrawing();
-			{
-				ClearBackground(BLACK);
-				matrixRain.Draw();
-#endif
-
-#ifdef __linux__
 			BeginDrawing();
 			{
 				ClearBackground(BLACK);

@@ -1,11 +1,11 @@
 #include "matrix_rain.h"
-#include "asset_loader.h"
-#include "platform/desktop_integration.h"
 #include <algorithm>
 #include <cmath>
 #include <ctime>
 #include <string>
 #include <vector>
+#include "asset_loader.h"
+#include "platform/desktop_integration.h"
 
 // Initialize static members
 Texture MatrixGlyph::glyphTexture;
@@ -18,7 +18,7 @@ void MatrixGlyph::Init()
 	// If loading failed, notify the user
 	if (glyphTexture.id == 0) {
 		DesktopIntegration::ShowAlert("Error", "Failed to load glyph texture!");
-        exit(1);
+		exit(1);
 	}
 }
 
@@ -178,7 +178,7 @@ void MatrixRain::Draw() const
 
 Vector2 MatrixRain::GetCellPositionFromPoint(Vector2 point) const
 {
-	return {floor(point.x / columnWidth), floor(point.y / rowHeight)};
+	return {(float)floor(point.x / columnWidth), (float)floor(point.y / rowHeight)};
 }
 
 void MatrixRain::SetSpawnCell(Vector2 cellPos)
