@@ -29,7 +29,19 @@ int main()
 			  << monitor.y << ")" << std::endl;
 
 	// Initialize raylib window
+	#ifdef __APPLE__
+	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_UNDECORATED);
+	#endif
+
+	#ifdef _WIN32
 	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+	#endif
+
+	#ifdef __linux__
+	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+	#endif
+
+	// Set target FPS
 	InitWindow(monitor.width, monitor.height, "Matrix Desktop Wallpaper");
 
 	// Set target FPS
@@ -98,6 +110,7 @@ int main()
 		// Update matrix rain
 		matrixRain.Update(deltaTime);
 
+#ifdef _WIN32
 		BeginTextureMode(target);
 		{
 			ClearBackground(BLACK);
@@ -121,9 +134,24 @@ int main()
 				);
 			}
 			EndShaderMode();
+#endif
+
+#ifdef __APPLE__
+			BeginDrawing();
+			{
+				ClearBackground(BLACK);
+				matrixRain.Draw();
+#endif
+
+#ifdef __linux__
+			BeginDrawing();
+			{
+				ClearBackground(BLACK);
+				matrixRain.Draw();
+#endif
 
 // Optional: Draw debug info
-#if 0
+#if 1
 		const int yStart = 100;
 		const int yStep = 30;
 		DrawText(TextFormat("FPS: %d", GetFPS()), 10, yStart, 20, GREEN);
@@ -132,21 +160,21 @@ int main()
 		DrawText(TextFormat("Screen: %dx%d", GetScreenWidth(), GetScreenHeight()), 10, yStart + yStep * 3, 20, GREEN);
 		DrawText(TextFormat("Render: %dx%d", GetRenderWidth(), GetRenderHeight()), 10, yStart + yStep * 4, 20, GREEN);
 #endif
-		}
-		EndDrawing();
+			}
+			EndDrawing();
 
-		// Handle window events
-		if (IsKeyPressed(KEY_ESCAPE)) {
-			break;
+			// Handle window events
+			if (IsKeyPressed(KEY_ESCAPE)) {
+				break;
+			}
 		}
+
+		// Cleanup
+		UnloadShader(bloom);
+		UnloadRenderTexture(target);
+		MatrixGlyph::Cleanup();
+		CloseWindow();
+		DesktopIntegration::Cleanup();
+
+		return 0;
 	}
-
-	// Cleanup
-	UnloadShader(bloom);
-	UnloadRenderTexture(target);
-	MatrixGlyph::Cleanup();
-	CloseWindow();
-	DesktopIntegration::Cleanup();
-
-	return 0;
-}
