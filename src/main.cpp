@@ -1,9 +1,9 @@
-#include <cmath>
 #include <iostream>
+#include <lumin.h>
 #include <random>
+
 #include "asset_loader.h"
 #include "matrix_rain.h"
-#include "platform/desktop_integration.h"
 #include "raylib.h"
 
 // Configuration
@@ -17,32 +17,33 @@ std::uniform_real_distribution<float> glyphMouseResponse(0.0f, 1.0f);
 int main()
 {
 	// Initialize desktop integration
-	if (!DesktopIntegration::Initialize()) {
-		DesktopIntegration::ShowAlert("Error", "Failed to initialize desktop integration!");
+	if (!lumin::Initialize()) {
+		lumin::ShowAlert("Error", "Failed to initialize desktop integration!");
 		return -1;
 	}
 
 	// Get target monitor info
-	MonitorInfo monitor = DesktopIntegration::GetWallpaperTarget(TARGET_MONITOR);
+	lumin::MonitorInfo monitorInfo = lumin::GetWallpaperTarget(TARGET_MONITOR);
 
-	std::cout << "Target monitor: " << monitor.width << "x" << monitor.height << " at (" << monitor.x << ", "
-			  << monitor.y << ")" << std::endl;
 
-	// Initialize raylib window
-	#ifdef __APPLE__
+	std::cout << "Target monitor: " << monitorInfo.width << "x" << monitorInfo.height << " at (" << monitorInfo.x
+			  << ", " << monitorInfo.y << ")" << std::endl;
+
+// Initialize raylib window
+#ifdef __APPLE__
 	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_UNDECORATED);
-	#endif
+#endif
 
-	#ifdef _WIN32
+#ifdef _WIN32
 	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
-	#endif
+#endif
 
-	#ifdef __linux__
+#ifdef __linux__
 	SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
-	#endif
+#endif
 
 	// Set target FPS
-	InitWindow(monitor.width, monitor.height, "Matrix Desktop Wallpaper");
+	InitWindow(monitorInfo.width, monitorInfo.height, "Matrix Desktop Wallpaper");
 
 	// Set target FPS
 	SetTargetFPS(60);
@@ -51,11 +52,13 @@ int main()
 	MatrixGlyph::Init();
 
 	// Create matrix rain effect
-	MatrixRain matrixRain(monitor.width, monitor.height, GLYPH_SCALE);
+	MatrixRain matrixRain(monitorInfo.width, monitorInfo.height, GLYPH_SCALE);
 
 	// Configure the window for wallpaper mode
-	void *windowHandle = GetWindowHandle();
-	DesktopIntegration::ConfigureWallpaperWindow(windowHandle, monitor);
+	void *raylibWindowHandle = GetWindowHandle();
+
+	// Reparent the raylib window to the window behind the desktop icons.
+	lumin::ConfigureWallpaperWindow(raylibWindowHandle, monitorInfo);
 
 	// Create render texture for bloom effect
 	RenderTexture2D target = LoadRenderTexture(GetRenderWidth(), GetRenderHeight());
@@ -65,7 +68,7 @@ int main()
 	std::string shaderPath = ASSET_PATH("bloom.fs");
 	Shader bloom = LoadShader(0, shaderPath.c_str());
 	if (!bloom.id) {
-		DesktopIntegration::ShowAlert("Error", "Failed to load bloom shader!");
+		lumin::ShowAlert("Error", "Failed to load bloom shader!");
 		return -1;
 	}
 
@@ -82,16 +85,16 @@ int main()
 		float deltaTime = GetFrameTime();
 
 		// Update desktop integration mouse state
-		DesktopIntegration::UpdateMouseState();
+		lumin::UpdateMouseState();
 
 		// Check for occlusion (skip rendering if mostly occluded)
-		if (DesktopIntegration::IsMonitorOccluded(monitor, 0.90)) {
+		if (lumin::IsMonitorOccluded(monitorInfo, 0.90)) {
 			WaitTime(0.1);
 			continue;
 		}
 
 		// Get mouse position and calculate cell position
-		auto raylibMousePos = DesktopIntegration::GetMousePosition();
+		auto raylibMousePos = lumin::GetMousePosition();
 		Vector2 mouseCellPos = matrixRain.GetCellPositionFromPoint(Vector2 {raylibMousePos.x, raylibMousePos.y});
 
 		float mouseSpawnChance = 0.0f;
@@ -134,40 +137,46 @@ int main()
 				);
 			}
 			EndShaderMode();
-#endif
-
-#ifdef __APPLE__
-			BeginDrawing();
-			{
-				ClearBackground(BLACK);
-				matrixRain.Draw();
+#elif defined(__APPLE__)
+		BeginDrawing();
+		{
+			ClearBackground(BLACK);
+			matrixRain.Draw();
 #endif
 
 // Optional: Draw debug info
-#if 1
-		const int yStart = 100;
-		const int yStep = 30;
-		DrawText(TextFormat("FPS: %d", GetFPS()), 10, yStart, 20, GREEN);
-		DrawText(TextFormat("Mouse: %.0f, %.0f", raylibMousePos.x, raylibMousePos.y), 10, yStart + yStep, 20, GREEN);
-		DrawText(TextFormat("Monitor: %dx%d", monitor.width, monitor.height), 10, yStart + yStep * 2, 20, GREEN);
-		DrawText(TextFormat("Screen: %dx%d", GetScreenWidth(), GetScreenHeight()), 10, yStart + yStep * 3, 20, GREEN);
-		DrawText(TextFormat("Render: %dx%d", GetRenderWidth(), GetRenderHeight()), 10, yStart + yStep * 4, 20, GREEN);
+#if 0
+			const int yStart = 100;
+			const int yStep = 30;
+			DrawText(TextFormat("FPS: %d", GetFPS()), 10, yStart, 20, GREEN);
+			DrawText(
+				TextFormat("Mouse: %.0f, %.0f", raylibMousePos.x, raylibMousePos.y), 10, yStart + yStep, 20, GREEN
+			);
+			DrawText(
+				TextFormat("Monitor: %dx%d", monitorInfo.width, monitorInfo.height), 10, yStart + yStep * 2, 20, GREEN
+			);
+			DrawText(
+				TextFormat("Screen: %dx%d", GetScreenWidth(), GetScreenHeight()), 10, yStart + yStep * 3, 20, GREEN
+			);
+			DrawText(
+				TextFormat("Render: %dx%d", GetRenderWidth(), GetRenderHeight()), 10, yStart + yStep * 4, 20, GREEN
+			);
 #endif
-			}
-			EndDrawing();
-
-			// Handle window events
-			if (IsKeyPressed(KEY_ESCAPE)) {
-				break;
-			}
 		}
+		EndDrawing();
 
-		// Cleanup
-		UnloadShader(bloom);
-		UnloadRenderTexture(target);
-		MatrixGlyph::Cleanup();
-		CloseWindow();
-		DesktopIntegration::Cleanup();
-
-		return 0;
+		// Handle window events
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			break;
+		}
 	}
+
+	// Cleanup
+	UnloadShader(bloom);
+	UnloadRenderTexture(target);
+	MatrixGlyph::Cleanup();
+	CloseWindow();
+	lumin::Cleanup();
+
+	return 0;
+}

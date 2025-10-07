@@ -20,6 +20,8 @@ elseif(UNIX)
     set(PLATFORM_LINUX TRUE)
 endif()
 
+set(LWP_GIT_TAG main CACHE STRING "Git tag/branch for LuminWallpaper")
+
 # Find or build raylib
 find_package(raylib 5.0 QUIET)
 if (NOT raylib_FOUND)
@@ -33,6 +35,14 @@ if (NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif()
 
+# Fetch LuminWallpaper
+FetchContent_Declare(
+  lumin
+  GIT_REPOSITORY https://github.com/jensroth-git/LuminWallpaper.git
+  GIT_TAG ${LWP_GIT_TAG}
+)
+FetchContent_MakeAvailable(lumin)
+
 # Create the executable
 set(SOURCES
     src/main.cpp
@@ -43,28 +53,10 @@ set(SOURCES
     src/asset_loader.cpp
 )
 
-# Platform-specific sources
-if(PLATFORM_WINDOWS)
-    list(APPEND SOURCES
-        src/platform/windows/desktop_integration_windows.cpp
-        src/platform/desktop_integration.h
-    )
-elseif(PLATFORM_MACOS)
-    list(APPEND SOURCES
-        src/platform/macos/desktop_integration_macos.mm
-        src/platform/desktop_integration.h
-    )
-elseif(PLATFORM_LINUX)
-    list(APPEND SOURCES
-        src/platform/linux/desktop_integration_linux.cpp
-        src/platform/desktop_integration.h
-    )
-endif()
-
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} raylib)
+target_link_libraries(${PROJECT_NAME} raylib lumin)
 
 # Platform-specific linking
 if(PLATFORM_WINDOWS)

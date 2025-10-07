@@ -5,7 +5,8 @@
 #include <string>
 #include <vector>
 #include "asset_loader.h"
-#include "platform/desktop_integration.h"
+
+#include <lumin.h>
 
 // Initialize static members
 Texture MatrixGlyph::glyphTexture;
@@ -17,7 +18,7 @@ void MatrixGlyph::Init()
 
 	// If loading failed, notify the user
 	if (glyphTexture.id == 0) {
-		DesktopIntegration::ShowAlert("Error", "Failed to load glyph texture!");
+		lumin::ShowAlert("Error", "Failed to load glyph texture!");
 		exit(1);
 	}
 }
