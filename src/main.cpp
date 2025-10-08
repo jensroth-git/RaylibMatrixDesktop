@@ -25,7 +25,6 @@ int main()
 	// Get target monitor info
 	lumin::MonitorInfo monitorInfo = lumin::GetWallpaperTarget(TARGET_MONITOR);
 
-
 	std::cout << "Target monitor: " << monitorInfo.width << "x" << monitorInfo.height << " at (" << monitorInfo.x
 			  << ", " << monitorInfo.y << ")" << std::endl;
 
